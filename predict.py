@@ -10,18 +10,15 @@ def predict(device, model, text, text_pipeline):
         probs = torch.nn.functional.hardsigmoid(probs)
         probs = probs.squeeze().tolist()
         indices = indices.squeeze().tolist()
-        prob0 = round(probs[0] / (probs[0] + probs[1]), 4)
+        prob0 = round(probs[0] / sum(probs), 4)
 
         return indices[0], prob0
 
 
-def _predict(text):
-    tokenizer, vocab, text_pipeline, device, model = get_tvt_dm()
-    return predict(device, model, text, text_pipeline)
-
-
 if __name__ == '__main__':
+    _, _, text_pipeline0, device0, model0 = get_tvt_dm()
+
     while True:
         name = input('请输入要预测的名字：\n')
-        cls, prob = _predict(name)
+        cls, prob = predict(device0, model0, name, text_pipeline0)
         print(f'{name}可能是{LABEL[cls]}性，概率为{prob}')
