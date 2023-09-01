@@ -1,3 +1,4 @@
+IN_DIM = 9449
 FC_DIM = 256  # 第一个全连接层的维度
 NUM_CLASSES = 2
 EM_SIZE = 64

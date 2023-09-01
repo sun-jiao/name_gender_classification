@@ -4,9 +4,9 @@ from torch.nn import functional
 
 # Define your text classification model
 class TextClassificationModel(nn.Module):
-    def __init__(self, vocab, embed_dim, fc_dim, num_class):
+    def __init__(self, in_dim, embed_dim, fc_dim, num_class):
         super(TextClassificationModel, self).__init__()
-        self.embedding = nn.EmbeddingBag(len(vocab), embed_dim, sparse=False)
+        self.embedding = nn.EmbeddingBag(in_dim, embed_dim, sparse=False)
         self.fc1 = nn.Linear(embed_dim, fc_dim)  # 添加第一个全连接层
         self.fc2 = nn.Linear(fc_dim, num_class)  # 输出层
 

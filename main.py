@@ -76,7 +76,8 @@ def collate_batch(batch):
     return label_list, text_list, offsets
 
 
-tokenizer, vocab, text_pipeline, device, model = get_tvt_dm()
+text_pipeline = get_pipeline()
+model, device = get_model()
 
 # Load your custom CSV dataset
 data = pd.read_csv('data/train_data.csv')
@@ -90,7 +91,7 @@ train_dataset = CustomDataset(train_data, text_pipeline, 'name', 'sex')  # Repla
 test_dataset = CustomDataset(test_data, text_pipeline, 'name', 'sex')
 
 # Hyperparameters
-EPOCHS = 0  # epoch
+EPOCHS = 10  # epoch
 learning_rate = 0.005  # learning rate
 BATCH_SIZE = 64  # batch size for training
 

@@ -16,7 +16,8 @@ def predict(device, model, text, text_pipeline):
 
 
 if __name__ == '__main__':
-    _, _, text_pipeline0, device0, model0 = get_tvt_dm()
+    text_pipeline0 = get_pipeline()
+    model0, device0 = get_model()
 
     while True:
         name = input('请输入要预测的名字：\n')
