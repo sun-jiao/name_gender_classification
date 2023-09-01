@@ -1,13 +1,15 @@
+import os
+import pickle
+import random
 import time
 
-import random
 import pandas as pd
 import torch
 from torch import nn
+from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset, random_split
-from torchtext.vocab import build_vocab_from_iterator
 
-from utils import chinese_normalize
+from utils import *
 
 # Load your custom CSV dataset
 data = pd.read_csv('data/train_data.csv')
@@ -15,15 +17,15 @@ data = pd.read_csv('data/train_data.csv')
 # Define your tokenizer
 tokenizer = chinese_normalize
 
+# Define your vocabulary
+train_texts = data['name'].tolist()  # Replace with the actual column name
+# 加载词汇表
+with open('vocab.pickle', 'rb') as f:
+    vocab = pickle.load(f)
+
 
 def text_pipeline(x):
     return vocab(tokenizer(x))
-
-
-# Define your vocabulary
-train_texts = data['name'].tolist()  # Replace with the actual column name
-vocab = build_vocab_from_iterator(train_texts, specials=["<unk>"])
-vocab.set_default_index(vocab["<unk>"])
 
 
 # Define your custom Dataset class
@@ -69,27 +71,73 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define your text classification model
 class TextClassificationModel(nn.Module):
-    def __init__(self, _vocab_size, embed_dim, _num_class):
+    def __init__(self, _vocab_size, embed_dim, dim1, _num_class):
         super(TextClassificationModel, self).__init__()
         self.embedding = nn.EmbeddingBag(_vocab_size, embed_dim, sparse=False)
-        self.fc = nn.Linear(embed_dim, _num_class)
-        self.init_weights()
+        self.fc1 = nn.Linear(embed_dim, dim1)  # 添加第一个全连接层
+        self.fc2 = nn.Linear(dim1, _num_class)  # 输出层
 
     def init_weights(self):
         init_range = 0.5
         self.embedding.weight.data.uniform_(-init_range, init_range)
-        self.fc.weight.data.uniform_(-init_range, init_range)
-        self.fc.bias.data.zero_()
+        for fc in [self.fc1, self.fc2]:
+            fc.weight.data.uniform_(-init_range, init_range)
+            fc.bias.data.zero_()
 
+    # 在forward函数中添加新的全连接层和输出层
     def forward(self, text_f, offsets):
         embedded = self.embedding(text_f, offsets)
-        return self.fc(embedded)
+        x = functional.relu(self.fc1(embedded))  # 第一个全连接层
+        output = self.fc2(x)  # 输出层
+        return output
 
 
-num_class = 3
+def max_index_file(directory, prefix, suffix):
+    max_index = -1
+    max_file = None
+
+    for filename in os.listdir(directory):
+        if filename.startswith(prefix) and filename.endswith(suffix):
+            # 提取索引部分
+            index_str = filename[len(prefix) + 1: -len(suffix) - 1]
+            try:
+                index = int(index_str)
+                if index > max_index:
+                    max_index = index
+                    max_file = filename
+            except ValueError:
+                continue
+
+    return max_index, max_file
+
+
+def get_weights(_models_dir: str, name: str):
+    _, max_file = max_index_file(_models_dir, name, 'pth')
+
+    if max_file is not None:
+        print(f'Loading model {max_file}.')
+        return torch.load(os.path.join(_models_dir, max_file))
+    else:
+        return None
+
+
+MODELS_DIR = 'models'
+MODEL_NAME = 'zh_gender'
+
+fc_dim = 256  # 第一个全连接层的维度
+num_class = 2
 vocab_size = len(vocab)
 em_size = 64
-model = TextClassificationModel(vocab_size, em_size, num_class).to(device)
+
+model = TextClassificationModel(vocab_size, em_size, fc_dim, num_class)
+weights = get_weights(MODELS_DIR, MODEL_NAME)
+if weights is not None:
+    model.load_state_dict(weights)
+else:
+    model.init_weights()
+
+model.to(device)
+print(model)
 
 
 # Define training and evaluation functions
@@ -125,6 +173,11 @@ def train(_dataloader, _optimizer, _criterion):
 
     # Ensure idx_t is greater than zero before calculating the average loss
     return total_acc / total_count, total_loss / (idx_t + 1)
+
+
+def save_model(_model: nn.Module, _models_dir: str, name: str):
+    max_index, _ = max_index_file(_models_dir, name, 'pth')
+    torch.save(_model.state_dict(), os.path.join(_models_dir, f'{name}_{max_index + 1}.pth'))
 
 
 def evaluate(dataloader):
@@ -191,8 +244,10 @@ print("Checking the results of the test dataset.")
 test_acc, test_loss = evaluate(test_dataloader)
 print("Test accuracy {:8.3f} | Test loss {:8.3f}".format(test_acc, test_loss))
 
+save_model(model, MODELS_DIR, MODEL_NAME)
+
 # Define label mapping
-label_mapping = {0: '女', 1: '男', 2: '未知'}
+label_mapping = {0: '女', 1: '男'}
 
 
 def predict(_text, _text_pipeline):
@@ -203,7 +258,7 @@ def predict(_text, _text_pipeline):
 
 
 # 从测试数据集中随机选择一些样本进行预测
-num_samples = 5  # 选择要预测的样本数量
+num_samples = 10  # 选择要预测的样本数量
 sample_indices = random.sample(range(len(test_dataset)), num_samples)
 
 for idx in sample_indices:
