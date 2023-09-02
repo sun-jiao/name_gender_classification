@@ -16,13 +16,13 @@ def predict(device, model, text, text_pipeline):
 
 
 if __name__ == '__main__':
-    text_pipeline0 = get_pipeline()
-    model0, device0 = get_model()
+    _text_pipeline = get_pipeline()
+    _model, _device = get_model()
 
     try:
         while True:
             name = input('请输入要预测的名字后回车（或直接回车以退出）：\n')
-            cls, prob = predict(device0, model0, name, text_pipeline0)
+            cls, prob = predict(_device, _model, name, _text_pipeline)
             print(f'{name}可能是{LABEL[cls]}性，概率为{prob}')
     except RuntimeError:
         print('已退出')
