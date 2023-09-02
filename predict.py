@@ -7,7 +7,7 @@ def predict(device, model, text, text_pipeline):
         output = model(text.to(device), torch.tensor([0]).to(device))
 
         probs, indices = torch.topk(output, k=2, dim=1)
-        probs = torch.nn.functional.hardsigmoid(probs)
+        probs = torch.nn.functional.softmax(probs, dim=1)
         probs = probs.squeeze().tolist()
         indices = indices.squeeze().tolist()
         prob0 = round(probs[0] / sum(probs), 4)
